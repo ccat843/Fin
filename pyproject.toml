@@ -1,0 +1,13 @@
+[project]
+name = "contract-verifier-skill"
+version = "0.1.0"
+description = "Design scaffold for deterministic smart contract security and formal verification skill"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -92,7 +92,7 @@ class Obligation:
     id: str
     predicate: Expression
     description: str
-    origin: Literal["frontend", "ai_generated", "user"]
+    origin: Literal["frontend", "ai_generated", "user", "hypothesis"]
     severity_on_failure: Severity = "medium"
     source: SourceSpan | None = None
 

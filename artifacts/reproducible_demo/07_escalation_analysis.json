@@ -1,0 +1,65 @@
+[
+  {
+    "explanation": "Escalation is feasible for balance_non_negative; feasible variants=('attacker-caller', 'privileged-caller'); infeasible variants=(); max severity=critical.",
+    "graph": {
+      "edges": [
+        {
+          "feasible": true,
+          "severity_after": "critical",
+          "severity_before": "low",
+          "source": "state:initial",
+          "target": "state:1",
+          "transition": "drain"
+        }
+      ],
+      "nodes": [
+        {
+          "feasible": true,
+          "id": "state:initial",
+          "label": "counterexample entry",
+          "severity": "low",
+          "state_snapshot": {}
+        },
+        {
+          "feasible": true,
+          "id": "state:1",
+          "label": "after drain",
+          "severity": "critical",
+          "state_snapshot": {
+            "balance": -5
+          }
+        }
+      ]
+    },
+    "impact": {
+      "asset_loss": "critical",
+      "control_flow": "medium",
+      "privilege_escalation": "low",
+      "state_corruption": "medium"
+    },
+    "max_severity": "critical",
+    "max_severity_path": [
+      "state:initial",
+      "state:1"
+    ],
+    "obligation_id": "balance_non_negative",
+    "variants": [
+      {
+        "accounts": {},
+        "caller": "attacker",
+        "feasible": true,
+        "id": "attacker-caller",
+        "solver_proof": null,
+        "solver_status": "sat"
+      },
+      {
+        "accounts": {},
+        "caller": "admin",
+        "feasible": true,
+        "id": "privileged-caller",
+        "solver_proof": null,
+        "solver_status": "sat"
+      }
+    ]
+  }
+]

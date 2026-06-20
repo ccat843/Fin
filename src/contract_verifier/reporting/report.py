@@ -10,6 +10,10 @@ class AuditReport:
     executive_summary: str
     threat_model: dict[str, object]
     invariants: list[dict[str, object]] = field(default_factory=list)
+    vulnerability_hypotheses: list[dict[str, object]] = field(default_factory=list)
+    confirmed_exploits: list[dict[str, object]] = field(default_factory=list)
+    failed_hypotheses: list[dict[str, object]] = field(default_factory=list)
+    potential_risks: list[dict[str, object]] = field(default_factory=list)
     verified_properties: list[dict[str, object]] = field(default_factory=list)
     counterexamples: list[dict[str, object]] = field(default_factory=list)
     escalation_chains: list[dict[str, object]] = field(default_factory=list)
@@ -20,6 +24,10 @@ class AuditReport:
             "executive_summary": self.executive_summary,
             "threat_model": self._normalize_mapping(self.threat_model),
             "invariants": self._normalize_records(self.invariants),
+            "vulnerability_hypotheses": self._normalize_records(self.vulnerability_hypotheses),
+            "confirmed_exploits": self._normalize_records(self.confirmed_exploits),
+            "failed_hypotheses": self._normalize_records(self.failed_hypotheses),
+            "potential_risks": self._normalize_records(self.potential_risks),
             "verified_properties": self._normalize_records(self.verified_properties),
             "counterexamples": self._normalize_records(self.counterexamples),
             "escalation_chains": self._normalize_records(self.escalation_chains),
@@ -39,6 +47,18 @@ class AuditReport:
             "",
             "## Invariants",
             self._format_records(data["invariants"]),
+            "",
+            "## Vulnerability Hypotheses",
+            self._format_records(data["vulnerability_hypotheses"]),
+            "",
+            "## Confirmed Exploits",
+            self._format_records(data["confirmed_exploits"]),
+            "",
+            "## Failed Hypotheses",
+            self._format_records(data["failed_hypotheses"]),
+            "",
+            "## Potential Risks",
+            self._format_records(data["potential_risks"]),
             "",
             "## Verified Properties",
             self._format_records(data["verified_properties"]),

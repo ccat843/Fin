@@ -1,0 +1,116 @@
+{
+  "hypothesis_validations": [
+    {
+      "hypothesis_id": "drain:balance:unchecked_value_mutation",
+      "id": "drain:balance:unchecked_value_mutation",
+      "reason": "Hypothesis condition reached a feasible state that violates the confirmation invariant.",
+      "solver_proof": "obligation evaluated to false in concrete execution state",
+      "solver_status": "sat",
+      "status": "confirmed",
+      "violation_id": "hypothesis_balance_non_negative"
+    }
+  ],
+  "invariant_violations": {
+    "examples/anchor/vault.rs": [],
+    "examples/solidity/OwnableVault.sol": [],
+    "tests/fixtures/VulnerableVault.sol": [
+      {
+        "counterexample": {
+          "branch_history": [
+            "require_1:true"
+          ],
+          "constraints": [
+            {
+              "args": [
+                {
+                  "args": [],
+                  "kind": "caller",
+                  "value": null
+                },
+                {
+                  "args": [],
+                  "kind": "read",
+                  "value": "owner"
+                }
+              ],
+              "kind": "neq",
+              "value": null
+            }
+          ],
+          "context": {
+            "accounts": {},
+            "caller": "attacker",
+            "chain": "evm",
+            "inputs": {},
+            "program_id": null,
+            "signers": []
+          },
+          "effects_applied": [
+            "balance_decrement_1"
+          ],
+          "invariant_violations": [
+            "balance_non_negative"
+          ],
+          "metadata": {
+            "invariant_status": "violated",
+            "invariant_violations": "balance_non_negative",
+            "solver_proof": "unsupported symbolic constraint shape",
+            "solver_status": "unknown"
+          },
+          "reverted": false,
+          "storage": {
+            "balance": -5,
+            "owner": "alice"
+          },
+          "transition_ids": [
+            "drain"
+          ]
+        },
+        "detection": "immediate",
+        "obligation_description": "balance must never become negative",
+        "obligation_id": "balance_non_negative",
+        "predicate": {
+          "args": [
+            {
+              "args": [],
+              "kind": "read",
+              "value": "balance"
+            },
+            {
+              "args": [],
+              "kind": "literal",
+              "value": 0
+            }
+          ],
+          "kind": "gte",
+          "value": null
+        },
+        "solver_result": {
+          "model": {
+            "invariant_status": "violated",
+            "invariant_violations": "balance_non_negative",
+            "solver_proof": "unsupported symbolic constraint shape",
+            "solver_status": "unknown"
+          },
+          "proof": "obligation evaluated to false in concrete execution state",
+          "status": "sat"
+        }
+      }
+    ]
+  },
+  "vulnerability_hypotheses": [
+    {
+      "confidence": 0.82,
+      "id": "drain:balance:unchecked_value_mutation",
+      "reasoning_trace": [
+        "Transition 'drain' performs 'decrement' on value resource 'balance'.",
+        "No guard constrains the resource value before the arithmetic/state update.",
+        "Arithmetic affecting balances or token-like state can violate expected asset invariants."
+      ],
+      "resource_id": "balance",
+      "suggested_obligation_id": "hypothesis_balance_non_negative",
+      "transition_id": "drain",
+      "vulnerability_type": "unchecked_value_mutation"
+    }
+  ]
+}

@@ -1,0 +1,281 @@
+[
+  {
+    "chain": "solana",
+    "id": "examples/anchor/vault.rs",
+    "metadata": {
+      "frontend": "anchor"
+    },
+    "obligations": [],
+    "principals": [],
+    "resources": [],
+    "transitions": []
+  },
+  {
+    "chain": "evm",
+    "id": "OwnableVault",
+    "metadata": {
+      "frontend": "solidity",
+      "source_file": "examples/solidity/OwnableVault.sol"
+    },
+    "obligations": [
+      {
+        "description": "balance must never become negative",
+        "id": "balance_non_negative",
+        "origin": "frontend",
+        "predicate": {
+          "args": [
+            {
+              "args": [],
+              "kind": "read",
+              "value": "balance"
+            },
+            {
+              "args": [],
+              "kind": "literal",
+              "value": 0
+            }
+          ],
+          "kind": "gte",
+          "value": null
+        },
+        "severity_on_failure": "high",
+        "source": {
+          "end_line": 6,
+          "file": "examples/solidity/OwnableVault.sol",
+          "start_line": 6
+        }
+      }
+    ],
+    "principals": [],
+    "resources": [
+      {
+        "id": "owner",
+        "kind": "state_variable",
+        "mutable": true,
+        "owner": null,
+        "source": {
+          "end_line": 5,
+          "file": "examples/solidity/OwnableVault.sol",
+          "start_line": 5
+        },
+        "type_name": "address"
+      },
+      {
+        "id": "balance",
+        "kind": "state_variable",
+        "mutable": true,
+        "owner": null,
+        "source": {
+          "end_line": 6,
+          "file": "examples/solidity/OwnableVault.sol",
+          "start_line": 6
+        },
+        "type_name": "uint256"
+      }
+    ],
+    "transitions": [
+      {
+        "chain": "evm",
+        "effects": [],
+        "guards": [],
+        "id": "deposit",
+        "inputs": [
+          {
+            "id": "amount",
+            "kind": "state_variable",
+            "mutable": false,
+            "owner": null,
+            "source": {
+              "end_line": 12,
+              "file": "examples/solidity/OwnableVault.sol",
+              "start_line": 12
+            },
+            "type_name": "uint256"
+          }
+        ],
+        "name": "deposit",
+        "obligations": [],
+        "source": {
+          "end_line": 14,
+          "file": "examples/solidity/OwnableVault.sol",
+          "start_line": 12
+        }
+      },
+      {
+        "chain": "evm",
+        "effects": [],
+        "guards": [
+          {
+            "description": "require(msg.sender == owner)",
+            "id": "require_1",
+            "predicate": {
+              "args": [
+                {
+                  "args": [],
+                  "kind": "caller",
+                  "value": null
+                },
+                {
+                  "args": [],
+                  "kind": "read",
+                  "value": "owner"
+                }
+              ],
+              "kind": "eq",
+              "value": null
+            },
+            "source": {
+              "end_line": 17,
+              "file": "examples/solidity/OwnableVault.sol",
+              "start_line": 17
+            }
+          }
+        ],
+        "id": "withdraw",
+        "inputs": [
+          {
+            "id": "amount",
+            "kind": "state_variable",
+            "mutable": false,
+            "owner": null,
+            "source": {
+              "end_line": 16,
+              "file": "examples/solidity/OwnableVault.sol",
+              "start_line": 16
+            },
+            "type_name": "uint256"
+          }
+        ],
+        "name": "withdraw",
+        "obligations": [],
+        "source": {
+          "end_line": 19,
+          "file": "examples/solidity/OwnableVault.sol",
+          "start_line": 16
+        }
+      }
+    ]
+  },
+  {
+    "chain": "evm",
+    "id": "VulnerableVault",
+    "metadata": {
+      "frontend": "solidity",
+      "source_file": "tests/fixtures/VulnerableVault.sol"
+    },
+    "obligations": [
+      {
+        "description": "balance must never become negative",
+        "id": "balance_non_negative",
+        "origin": "frontend",
+        "predicate": {
+          "args": [
+            {
+              "args": [],
+              "kind": "read",
+              "value": "balance"
+            },
+            {
+              "args": [],
+              "kind": "literal",
+              "value": 0
+            }
+          ],
+          "kind": "gte",
+          "value": null
+        },
+        "severity_on_failure": "high",
+        "source": {
+          "end_line": 5,
+          "file": "tests/fixtures/VulnerableVault.sol",
+          "start_line": 5
+        }
+      }
+    ],
+    "principals": [],
+    "resources": [
+      {
+        "id": "owner",
+        "kind": "state_variable",
+        "mutable": true,
+        "owner": null,
+        "source": {
+          "end_line": 4,
+          "file": "tests/fixtures/VulnerableVault.sol",
+          "start_line": 4
+        },
+        "type_name": "address"
+      },
+      {
+        "id": "balance",
+        "kind": "state_variable",
+        "mutable": true,
+        "owner": null,
+        "source": {
+          "end_line": 5,
+          "file": "tests/fixtures/VulnerableVault.sol",
+          "start_line": 5
+        },
+        "type_name": "int256"
+      }
+    ],
+    "transitions": [
+      {
+        "chain": "evm",
+        "effects": [
+          {
+            "id": "balance_decrement_1",
+            "operation": "decrement",
+            "resource_id": "balance",
+            "source": {
+              "end_line": 9,
+              "file": "tests/fixtures/VulnerableVault.sol",
+              "start_line": 9
+            },
+            "value": {
+              "args": [],
+              "kind": "literal",
+              "value": 15
+            }
+          }
+        ],
+        "guards": [
+          {
+            "description": "require(msg.sender != owner)",
+            "id": "require_1",
+            "predicate": {
+              "args": [
+                {
+                  "args": [],
+                  "kind": "caller",
+                  "value": null
+                },
+                {
+                  "args": [],
+                  "kind": "read",
+                  "value": "owner"
+                }
+              ],
+              "kind": "neq",
+              "value": null
+            },
+            "source": {
+              "end_line": 8,
+              "file": "tests/fixtures/VulnerableVault.sol",
+              "start_line": 8
+            }
+          }
+        ],
+        "id": "drain",
+        "inputs": [],
+        "name": "drain",
+        "obligations": [],
+        "source": {
+          "end_line": 10,
+          "file": "tests/fixtures/VulnerableVault.sol",
+          "start_line": 7
+        }
+      }
+    ]
+  }
+]

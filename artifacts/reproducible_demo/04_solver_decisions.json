@@ -1,0 +1,42 @@
+{
+  "examples/anchor/vault.rs": [],
+  "examples/solidity/OwnableVault.sol": [
+    {
+      "branch_history": [],
+      "path": [
+        "deposit"
+      ],
+      "path_conditions": [],
+      "solver_proof": null,
+      "solver_status": "sat"
+    },
+    {
+      "branch_history": [
+        "require_1:false"
+      ],
+      "path": [
+        "withdraw"
+      ],
+      "path_conditions": [
+        "not ((caller == owner))"
+      ],
+      "solver_proof": "unsupported symbolic constraint shape",
+      "solver_status": "unknown"
+    }
+  ],
+  "tests/fixtures/VulnerableVault.sol": [
+    {
+      "branch_history": [
+        "require_1:true"
+      ],
+      "path": [
+        "drain"
+      ],
+      "path_conditions": [
+        "(caller != owner)"
+      ],
+      "solver_proof": "unsupported symbolic constraint shape",
+      "solver_status": "unknown"
+    }
+  ]
+}

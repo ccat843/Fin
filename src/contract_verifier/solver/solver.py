@@ -40,9 +40,11 @@ class SimpleConstraintSolver:
     """Conservative deterministic solver for simple symbolic path conditions.
 
     It proves UNSAT for direct boolean contradictions and simple symbol-vs-literal
-    equality/inequality/range conflicts. Anything outside that subset returns SAT
-    unless a concrete falsehood is present; this keeps execution conservative and
-    reproducible without pretending to be a full SMT solver.
+    equality/inequality/range conflicts, including simple affine forms such as
+    ``amount + 1 <= 10`` when only one side is symbolic. Anything outside
+    that subset returns UNKNOWN unless a concrete falsehood is present; this keeps
+    execution conservative and reproducible without pretending to be a full SMT
+    solver.
     """
 
     def check(self, constraints: tuple[Expression, ...]) -> SolverResult:
@@ -170,9 +172,14 @@ class SimpleConstraintSolver:
         if expr.kind not in {ExprKind.EQ, ExprKind.NEQ, ExprKind.LT, ExprKind.LTE, ExprKind.GT, ExprKind.GTE}:
             return None
         left, right = expr.args
-        if left.kind == ExprKind.SYMBOL and right.kind == ExprKind.LITERAL:
-            return str(left.value), expr.kind, right.value
-        if left.kind == ExprKind.LITERAL and right.kind == ExprKind.SYMBOL:
+        left_affine = self._parse_affine_symbol(left)
+        right_affine = self._parse_affine_symbol(right)
+        if left_affine is not None and right.kind == ExprKind.LITERAL:
+            symbol, offset = left_affine
+            literal = self._subtract_numeric(right.value, offset)
+            if literal is not None:
+                return symbol, expr.kind, literal
+        if right_affine is not None and left.kind == ExprKind.LITERAL:
             flipped = {
                 ExprKind.EQ: ExprKind.EQ,
                 ExprKind.NEQ: ExprKind.NEQ,
@@ -181,7 +188,37 @@ class SimpleConstraintSolver:
                 ExprKind.GT: ExprKind.LT,
                 ExprKind.GTE: ExprKind.LTE,
             }[expr.kind]
-            return str(right.value), flipped, left.value
+            symbol, offset = right_affine
+            literal = self._subtract_numeric(left.value, offset)
+            if literal is not None:
+                return symbol, flipped, literal
+        return None
+
+    def _parse_affine_symbol(self, expr: Expression) -> tuple[str, int] | None:
+        if expr.kind == ExprKind.SYMBOL:
+            return str(expr.value), 0
+        if expr.kind not in {ExprKind.ADD, ExprKind.SUB} or len(expr.args) != 2:
+            return None
+        left, right = expr.args
+        left_affine = self._parse_affine_symbol(left)
+        right_affine = self._parse_affine_symbol(right)
+        if left_affine is not None and right.kind == ExprKind.LITERAL and isinstance(right.value, int):
+            symbol, offset = left_affine
+            if expr.kind == ExprKind.ADD:
+                return symbol, offset + right.value
+            return symbol, offset - right.value
+        if expr.kind == ExprKind.ADD and left.kind == ExprKind.LITERAL and isinstance(left.value, int):
+            if right_affine is None:
+                return None
+            symbol, offset = right_affine
+            return symbol, offset + left.value
+        return None
+
+    def _subtract_numeric(self, value: object, offset: int) -> object | None:
+        if isinstance(value, int):
+            return value - offset
+        if offset == 0:
+            return value
         return None
 
     def _eval_concrete(self, expr: Expression) -> bool | None:

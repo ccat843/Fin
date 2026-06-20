@@ -1,4 +1,4 @@
-from contract_verifier.ir.schema import ContractIR, Effect, ExprKind, Expression, Guard, Resource, Transition
+from contract_verifier.ir.schema import ContractIR, Effect, ExprKind, Expression, Guard, Obligation, Resource, Transition
 from contract_verifier.symbolic.context import ExecutionContext
 from contract_verifier.symbolic.engine import SymbolicExecutionEngine
 
@@ -203,3 +203,47 @@ def test_solana_account_guard_uses_unified_execution_context():
     assert states[0].reverted is False
     assert states[0].storage["vault.balance"] == 0
     assert states[0].branch_history == ("owner_matches:true",)
+
+
+def test_reverted_paths_do_not_report_invariant_violations():
+    ir = ContractIR(
+        id="vault",
+        chain="evm",
+        resources=(Resource(id="balance", kind="state_variable", type_name="int256"),),
+        obligations=(
+            Obligation(
+                id="must_be_zero",
+                predicate=Expression(kind=ExprKind.EQ, args=(read("balance"), literal(0))),
+                description="balance must be zero",
+                origin="user",
+            ),
+        ),
+        transitions=(
+            Transition(
+                id="withdraw",
+                name="withdraw",
+                chain="evm",
+                guards=(
+                    Guard(
+                        id="owner_only",
+                        predicate=Expression(
+                            kind=ExprKind.EQ,
+                            args=(Expression(kind=ExprKind.CALLER), literal("alice")),
+                        ),
+                        description="caller is owner",
+                    ),
+                ),
+                effects=(Effect(id="dec", resource_id="balance", operation="decrement", value=literal(1)),),
+            ),
+        ),
+    )
+
+    states = SymbolicExecutionEngine().explore(
+        ir,
+        context=ExecutionContext(chain="evm", caller="bob"),
+        initial_storage={"balance": 10},
+    )
+
+    assert len(states) == 1
+    assert states[0].reverted is True
+    assert states[0].invariant_violations == ()

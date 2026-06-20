@@ -66,7 +66,13 @@ class SymbolicExecutionEngine:
                 storage=dict(base_storage),
                 transition_ids=(transition.id,),
             )
-            states.extend(self.execute_transition(transition, entry_state, ir.obligations))
+            states.extend(
+                self.execute_transition(
+                    transition,
+                    entry_state,
+                    (*ir.obligations, *transition.obligations),
+                )
+            )
         return tuple(states)
 
     def explore_paths(
@@ -123,7 +129,7 @@ class SymbolicExecutionEngine:
     def _check_obligations(
         self, state: ExecutionState, obligations: tuple[Obligation, ...]
     ) -> ExecutionState:
-        if not obligations:
+        if not obligations or state.reverted:
             return state
         violations = self.invariant_evaluator.violations_for_state(state, obligations)
         if not violations:

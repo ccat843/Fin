@@ -141,3 +141,29 @@ def test_solver_backed_invariant_violation_is_detected_from_path_conditions():
     assert len(violations) == 1
     assert violations[0].detection == "solver"
     assert violations[0].counterexample.storage == {"balance": 10}
+
+
+def test_transition_local_obligations_are_evaluated_on_terminal_state():
+    ir = ContractIR(
+        id="vault",
+        chain="evm",
+        resources=(Resource(id="balance", kind="state_variable", type_name="int256"),),
+        transitions=(
+            Transition(
+                id="withdraw",
+                name="withdraw",
+                chain="evm",
+                effects=(Effect(id="dec", resource_id="balance", operation="decrement", value=literal(15)),),
+                obligations=(
+                    obligation(
+                        "withdraw_keeps_balance_non_negative",
+                        Expression(kind=ExprKind.GTE, args=(read("balance"), literal(0))),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    states = SymbolicExecutionEngine().explore(ir, initial_storage={"balance": 10})
+
+    assert states[0].invariant_violations == ("withdraw_keeps_balance_non_negative",)

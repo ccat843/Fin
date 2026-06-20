@@ -72,3 +72,20 @@ def test_report_generator_outputs_structured_sections():
         "escalation_chains",
         "remediation",
     }
+
+
+def test_report_output_is_sorted_and_markdown_is_stable():
+    report = ReportGenerator().empty()
+    report.invariants.extend(
+        [
+            {"id": "z_invariant", "status": "pass"},
+            {"id": "a_invariant", "status": "fail"},
+        ]
+    )
+
+    data = report.to_dict()
+    markdown = report.to_markdown()
+
+    assert [entry["id"] for entry in data["invariants"]] == ["a_invariant", "z_invariant"]
+    assert markdown.startswith("# Audit Report\n\n## Executive Summary")
+    assert "- **a_invariant**" in markdown

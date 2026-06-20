@@ -35,6 +35,8 @@ def test_escalation_graph_reports_asset_loss_and_max_path():
     assert result.escalation_graph.edges[0].transition == "withdraw"
     assert result.max_severity_path == ("state:initial", "state:1")
     assert "Escalation is feasible" in result.explanation
+    assert result.to_dict()["variants"][0]["id"] == "attacker-caller"
+    assert result.to_dict()["graph"]["nodes"][-1]["state_snapshot"] == {"balance": -5}
 
 
 def test_escalation_generates_solana_account_variant_and_reruns_symbolic_execution():

@@ -61,6 +61,31 @@ class ExploitChainGraph:
     nodes: tuple[ExploitGraphNode, ...]
     edges: tuple[ExploitGraphEdge, ...]
 
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "nodes": [
+                {
+                    "id": node.id,
+                    "label": node.label,
+                    "severity": node.severity,
+                    "feasible": node.feasible,
+                    "state_snapshot": dict(sorted(node.state_snapshot.items())),
+                }
+                for node in self.nodes
+            ],
+            "edges": [
+                {
+                    "source": edge.source,
+                    "target": edge.target,
+                    "transition": edge.transition,
+                    "severity_before": edge.severity_before,
+                    "severity_after": edge.severity_after,
+                    "feasible": edge.feasible,
+                }
+                for edge in self.edges
+            ],
+        }
+
 
 @dataclass(frozen=True)
 class EscalationResult:
@@ -71,6 +96,27 @@ class EscalationResult:
     variants: tuple[EscalationVariant, ...]
     impact: dict[str, Severity]
     explanation: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "obligation_id": self.counterexample.obligation_id,
+            "max_severity": self.max_severity,
+            "max_severity_path": list(self.max_severity_path),
+            "impact": dict(sorted(self.impact.items())),
+            "variants": [
+                {
+                    "id": variant.id,
+                    "caller": variant.caller,
+                    "feasible": variant.feasible,
+                    "solver_status": variant.solver_result.status if variant.solver_result else None,
+                    "solver_proof": variant.solver_result.proof if variant.solver_result else None,
+                    "accounts": dict(sorted(variant.accounts.items())),
+                }
+                for variant in sorted(self.variants, key=lambda item: item.id)
+            ],
+            "graph": self.escalation_graph.to_dict(),
+            "explanation": self.explanation,
+        }
 
 
 class EscalationEngine:
@@ -266,13 +312,21 @@ class EscalationEngine:
         max_severity: Severity,
     ) -> str:
         feasible_variants = tuple(variant.id for variant in variants if variant.feasible)
+        infeasible_variants = tuple(
+            f"{variant.id}:{variant.solver_result.status if variant.solver_result else 'not-run'}"
+            for variant in variants
+            if not variant.feasible
+        )
         if feasible_variants:
             return (
                 f"Escalation is feasible for {counterexample.obligation_id}; "
-                f"variants {feasible_variants} preserve satisfiable preconditions and reach max severity {max_severity}."
+                f"feasible variants={feasible_variants}; "
+                f"infeasible variants={infeasible_variants}; "
+                f"max severity={max_severity}."
             )
         return (
             f"Escalation is not feasible for {counterexample.obligation_id}; "
+            f"variant statuses={infeasible_variants}; "
             "all generated caller/account/precondition variants were UNSAT or reached no symbolic states."
         )
 

@@ -1,5 +1,5 @@
 from contract_verifier.ir.schema import ContractIR, Effect, ExprKind, Expression, Guard, Resource, Transition
-from contract_verifier.solver.solver import SolverResult
+from contract_verifier.solver.solver import SimpleConstraintSolver, SolverResult
 from contract_verifier.symbolic.engine import SymbolicExecutionEngine
 
 
@@ -103,3 +103,27 @@ def test_pluggable_solver_can_prune_all_paths():
     )
 
     assert SymbolicExecutionEngine(solver=UnsatSolver()).explore(ir, initial_storage={"balance": 10}) == ()
+
+
+def test_solver_detects_simple_affine_range_conflicts():
+    amount_plus_fee = Expression(kind=ExprKind.ADD, args=(symbol("amount"), literal(1)))
+    constraints = (
+        Expression(kind=ExprKind.GTE, args=(amount_plus_fee, literal(10))),
+        Expression(kind=ExprKind.LTE, args=(symbol("amount"), literal(8))),
+    )
+
+    result = SimpleConstraintSolver().check(constraints)
+
+    assert result.status == "unsat"
+    assert result.proof == "symbol lower bound exceeds upper bound"
+
+
+def test_solver_models_simple_affine_bounds():
+    remaining = Expression(kind=ExprKind.SUB, args=(symbol("balance"), literal(5)))
+
+    result = SimpleConstraintSolver().check(
+        (Expression(kind=ExprKind.GTE, args=(remaining, literal(0))),)
+    )
+
+    assert result.status == "sat"
+    assert result.model == {"balance": 5}

@@ -6,15 +6,17 @@ behavior from known limitations.
 
 ## Purpose
 
-The project provides an auditor-facing interface for deterministic smart-contract
-verification demos. Auditors call high-level commands such as
+The project provides an auditor-facing interface for security-first smart-contract
+vulnerability discovery demos. Auditors call high-level commands such as
 `audit_repository`, receive an aggregate report, and can inspect intermediate
-artifacts when they need to understand how a finding was produced.
+artifacts when they need to understand how a hypothesis became a confirmed
+exploit or why it stayed potential/failed.
 
 The core design goal is separation of responsibilities:
 
 - frontends lower source into a shared IR;
-- symbolic execution and solver layers make verification decisions;
+- the vulnerability layer generates suspicious hypotheses before invariant checks;
+- symbolic execution and solver layers validate feasibility and confirmation;
 - counterexample, escalation, and reporting layers make results easier to audit;
 - the auditor interface orchestrates those pieces without adding verification
   internals.
@@ -58,13 +60,18 @@ installation details.
 3. Discover `*.sol` files and Rust `*.rs` files that look like Anchor programs
    by containing `#[program]` or `anchor_lang`.
 4. Lower each source through the Solidity or Anchor frontend.
-5. Add default asset non-negativity obligations for recognized numeric,
-   asset-like resources such as `balance`.
-6. Run symbolic execution with deterministic initial storage heuristics.
-7. Evaluate obligations and collect invariant violations.
-8. Minimize each violation into a counterexample.
-9. Run escalation analysis for each counterexample.
-10. Aggregate all findings into a final `AuditReport`.
+5. Generate vulnerability hypotheses from security patterns before invariant
+   evaluation.
+6. Add default asset non-negativity confirmation obligations for recognized
+   numeric, asset-like resources such as `balance`.
+7. Run symbolic execution with deterministic initial storage heuristics.
+8. Validate each hypothesis by checking whether a feasible path triggers its
+   confirmation obligation.
+9. Evaluate explicit obligations as secondary confirmation checks.
+10. Minimize confirmed exploit violations into counterexamples.
+11. Run escalation analysis for each counterexample.
+12. Aggregate hypotheses, confirmed exploits, failed hypotheses, potential risks,
+   and findings into a final `AuditReport`.
 
 ## Unified IR schema
 
@@ -92,6 +99,7 @@ classify vulnerabilities.
 | `frontends.solidity` | Lowers a small Solidity subset: contract declarations, state variables, functions, `require(...)`, `msg.sender`, simple expressions, and assignment/decrement/increment effects. |
 | `frontends.anchor` | Returns a Solana `ContractIR` shell for Anchor/Rust sources; detailed Anchor lowering is not implemented yet. |
 | `ir` | Defines dataclasses for resources, principals, transitions, guards, effects, obligations, expressions, and structural validation. |
+| `vulnerability` | Generates heuristic security hypotheses and validates them against symbolic paths and confirmation obligations. |
 | `symbolic` | Explores transition paths, applies effects to path-local state, evaluates invariants, and minimizes counterexamples. |
 | `solver` | Provides a deterministic conservative solver for simple boolean contradictions and symbol/literal equality, inequality, and range constraints. |
 | `escalation` | Converts minimized counterexamples into impact ratings and compact exploit-chain graph data. |
@@ -101,16 +109,20 @@ classify vulnerabilities.
 ## Execution flow for one finding
 
 1. Solidity source such as `VulnerableVault.sol` is lowered into `ContractIR`.
-2. The auditor interface adds a default `balance_non_negative` obligation for
-   the numeric asset-like `balance` resource.
-3. Symbolic execution explores the `drain` transition.
-4. The path satisfying `msg.sender != owner` applies `balance = balance - 15`
+2. The vulnerability pattern engine flags `drain` as `unchecked_value_mutation`
+   because it decrements the asset-like `balance` resource without a value guard.
+3. The hypothesis carries a generated confirmation obligation that `balance`
+   should remain non-negative.
+4. Symbolic execution explores the `drain` transition.
+5. The path satisfying `msg.sender != owner` applies `balance = balance - 15`
    to the deterministic initial balance of `10`.
-5. The terminal state has `balance = -5`, violating `balance >= 0`.
-6. Counterexample minimization reduces the finding to the `drain` trace and the
+6. The terminal state has `balance = -5`, confirming the hypothesis with a
+   solver-backed invariant violation.
+7. Counterexample minimization reduces the finding to the `drain` trace and the
    `{'balance': -5}` state snapshot.
-7. Escalation analysis classifies asset loss as critical.
-8. Reporting emits the final auditor-readable finding and remediation.
+8. Escalation analysis classifies asset loss as critical.
+9. Reporting emits hypotheses, confirmed exploits, counterexample, final finding,
+   and remediation.
 
 ## Reproducible demo
 
@@ -125,8 +137,8 @@ User → audit_repository → final report
 ```
 
 The artifact directory includes original source, lowered IR, explored paths,
-solver decisions, invariant violations, minimized counterexample, escalation
-analysis, and final audit report.
+solver decisions, vulnerability hypotheses, confirmed exploits, invariant
+violations, minimized counterexample, escalation analysis, and final audit report.
 
 ## Current limitations
 
@@ -135,9 +147,11 @@ analysis, and final audit report.
 - Anchor support is discovery plus a Solana IR shell only.
 - The solver is conservative and intentionally returns `unknown` for unsupported
   symbolic shapes.
-- The auditor interface's default obligations and initial storage values are
-  demo heuristics, not a substitute for user-provided audit invariants.
-- AI-generated properties are not integrated into the default audit commands.
+- The vulnerability pattern engine, generated confirmation obligations, and
+  initial storage values are demo heuristics, not a substitute for project-specific
+  threat models, attack patterns, invariants, or assumptions.
+- AI-generated hypotheses/properties are not integrated into the default audit
+  commands; AI remains an untrusted source of candidate hypotheses only.
 - Reports are markdown/dictionary renderings; there is no SARIF, JSON schema, or
   web UI output yet.
 

@@ -1,10 +1,10 @@
 # Contract Verifier Skill
 
-A deterministic, auditor-facing smart-contract verification scaffold for Solidity
+A security-first, auditor-facing smart-contract vulnerability discovery skill for Solidity
 and Anchor repositories. The project lowers supported contract syntax into a
-unified `ContractIR`, explores paths with a symbolic executor, checks invariants
-with a deterministic constraint solver, minimizes counterexamples, evaluates
-exploit escalation, and emits auditor-readable reports.
+unified `ContractIR`, generates vulnerability hypotheses from suspicious patterns,
+uses symbolic execution and a deterministic solver for validation, minimizes
+counterexamples, evaluates exploit escalation, and emits auditor-readable reports.
 
 This repository is intentionally small and reproducible: no external SMT solver,
 LLM provider, blockchain node, or compiler is required for the bundled demo and
@@ -19,16 +19,20 @@ test suite.
   - `generate_remediation`
   - `compare_before_after_patch`
 - **Repository audit workflow** that discovers Solidity files and Anchor-looking
-  Rust files, lowers each supported contract, runs the existing verification
-  pipeline, and aggregates findings into a final report.
+  Rust files, lowers each supported contract, generates vulnerability hypotheses,
+  validates them through symbolic execution, and aggregates findings into a final
+  report.
 - **Solidity frontend subset** for contract declarations, state variables,
   functions, `require(...)` guards, `msg.sender`, and simple assignments or
   arithmetic updates.
 - **Anchor frontend placeholder** that identifies Anchor/Rust sources and lowers
   them into a Solana `ContractIR` shell. Detailed Anchor account/instruction
   lowering is not implemented yet.
-- **Deterministic symbolic execution and constraint solving** for the IR subset
-  covered by the tests and demo.
+- **Vulnerability discovery layer** that flags suspicious balance/token mutation,
+  weak authorization dependency, value mutation without validation, and source-order
+  state-update risks before invariant confirmation.
+- **Deterministic symbolic execution and constraint solving** for feasibility and
+  confirmation over the IR subset covered by the tests and demo.
 - **Counterexample minimization**, **escalation analysis**, and structured
   **audit report rendering**.
 - **Reproducible demo artifacts** in `artifacts/reproducible_demo` showing the
@@ -41,6 +45,7 @@ src/contract_verifier/
   auditor/       Auditor-facing command interface and report aggregation
   frontends/     Solidity subset frontend and Anchor placeholder frontend
   ir/            Chain-neutral dataclass schema for ContractIR
+  vulnerability/ Security pattern hypotheses and symbolic validation
   symbolic/      Symbolic execution, invariant evaluation, counterexamples
   solver/        Deterministic baseline constraint solver
   escalation/    Exploit escalation analysis for confirmed counterexamples
@@ -192,16 +197,22 @@ print(comparison['summary'])
 The verifier uses deterministic local components only:
 
 1. Frontends lower source text into `ContractIR`.
-2. The auditor interface adds default asset non-negativity obligations for
-   recognized numeric asset-like resources such as `balance`.
-3. Symbolic execution explores transition paths and records guards, effects,
+2. The vulnerability pattern engine generates suspicious hypotheses before
+   invariant evaluation.
+3. The auditor interface may add default asset non-negativity confirmation
+   obligations for recognized numeric asset-like resources such as `balance`.
+4. Symbolic execution explores transition paths and records guards, effects,
    path conditions, and terminal states.
-4. The baseline solver checks simple boolean, equality, inequality, and affine
+5. The baseline solver checks simple boolean, equality, inequality, and affine
    range constraints. Unsupported symbolic shapes are reported as `unknown`
    rather than guessed.
-5. Invariant violations are minimized into compact counterexamples.
-6. Escalation analysis ranks impact and builds a compact exploit-chain graph.
-7. Reports convert technical results into auditor-readable markdown.
+6. Feasible hypotheses that trigger confirmation invariants become confirmed
+   exploits; infeasible hypotheses are reported as failed and undecidable ones as
+   potential risks.
+7. Confirmed exploits are minimized into compact counterexamples.
+8. Escalation analysis ranks impact and builds a compact exploit-chain graph.
+9. Reports convert hypotheses, confirmed exploits, failed hypotheses, potential
+   risks, and remediation into auditor-readable markdown.
 
 ## Limitations
 
@@ -214,8 +225,9 @@ contract auditor yet.
 - The bundled solver is intentionally conservative and not a full SMT backend.
 - The AI property generator is a boundary placeholder and returns no obligations
   by default.
-- Default obligations and initial storage are heuristics designed for the demo
-  and tests; real audits should supply explicit project-specific invariants.
+- Vulnerability hypotheses, default confirmation obligations, and initial storage
+  values are heuristics designed for the demo and tests; real audits should add
+  project-specific attack patterns, invariants, and assumptions.
 
 ## Development workflow
 

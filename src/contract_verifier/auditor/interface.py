@@ -20,6 +20,11 @@ from contract_verifier.symbolic.context import ExecutionContext
 from contract_verifier.symbolic.counterexamples import CounterexampleMinimizer, MinimizedCounterexample
 from contract_verifier.symbolic.engine import SymbolicExecutionEngine
 from contract_verifier.symbolic.invariants import InvariantViolation
+from contract_verifier.vulnerability.patterns import (
+    HypothesisValidation,
+    VulnerabilityHypothesis,
+    VulnerabilityPatternEngine,
+)
 
 CommandName = Literal[
     "audit_contract",
@@ -44,6 +49,7 @@ class AuditFinding:
     escalation: EscalationResult
     explanation: str
     remediation: dict[str, str]
+    hypothesis: VulnerabilityHypothesis | None = None
 
     def to_report_record(self) -> dict[str, object]:
         return {
@@ -56,6 +62,7 @@ class AuditFinding:
             "attack_trace": list(self.counterexample.attack_trace),
             "state_snapshot": dict(self.counterexample.state_snapshot),
             "solver_status": self.counterexample.solver_result.status,
+            "hypothesis_id": self.hypothesis.id if self.hypothesis else None,
         }
 
 
@@ -68,6 +75,8 @@ class AuditRun:
     findings: tuple[AuditFinding, ...]
     report: AuditReport
     artifacts: dict[str, object] = field(default_factory=dict)
+    hypotheses: tuple[VulnerabilityHypothesis, ...] = ()
+    hypothesis_validations: tuple[HypothesisValidation, ...] = ()
 
     def to_markdown(self) -> str:
         return self.report.to_markdown()
@@ -85,6 +94,7 @@ class AuditorSkill:
         self.anchor_frontend = AnchorFrontend()
         self.symbolic_engine = SymbolicExecutionEngine()
         self.counterexample_minimizer = CounterexampleMinimizer()
+        self.vulnerability_engine = VulnerabilityPatternEngine(symbolic_engine=self.symbolic_engine)
 
     @property
     def commands(self) -> tuple[CommandName, ...]:
@@ -99,34 +109,42 @@ class AuditorSkill:
     def audit_contract(self, source: str, *, file_name: str) -> AuditRun:
         ir = self._lower_contract(source, file_name=file_name)
         findings, artifacts = self._run_contract_pipeline(ir)
-        report = self._build_report((ir,), findings)
+        report = self._build_report((ir,), findings, artifacts["hypotheses"], artifacts["hypothesis_validations"])
         return AuditRun(
             command="audit_contract",
             contracts=(ir,),
             findings=findings,
             report=report,
             artifacts={file_name: artifacts},
+            hypotheses=artifacts["hypotheses"],
+            hypothesis_validations=artifacts["hypothesis_validations"],
         )
 
     def audit_repository(self, repository: str | Path) -> AuditRun:
         root = Path(repository)
         contracts = tuple(self._discover_contracts(root))
         findings: list[AuditFinding] = []
+        hypotheses: list[VulnerabilityHypothesis] = []
+        validations: list[HypothesisValidation] = []
         artifacts: dict[str, object] = {}
         for source_path in contracts:
             source = source_path.read_text(encoding="utf-8")
             ir = self._lower_contract(source, file_name=str(source_path.relative_to(root)))
             contract_findings, contract_artifacts = self._run_contract_pipeline(ir)
             findings.extend(contract_findings)
+            hypotheses.extend(contract_artifacts["hypotheses"])
+            validations.extend(contract_artifacts["hypothesis_validations"])
             artifacts[str(source_path.relative_to(root))] = contract_artifacts
         lowered = tuple(item["ir"] for item in artifacts.values() if isinstance(item, dict) and "ir" in item)
-        report = self._build_report(lowered, tuple(findings))
+        report = self._build_report(lowered, tuple(findings), tuple(hypotheses), tuple(validations))
         return AuditRun(
             command="audit_repository",
             contracts=lowered,
             findings=tuple(findings),
             report=report,
             artifacts=artifacts,
+            hypotheses=tuple(hypotheses),
+            hypothesis_validations=tuple(validations),
         )
 
     def explain_finding(self, finding: AuditFinding) -> str:
@@ -219,10 +237,45 @@ class AuditorSkill:
             initial_storage=initial_storage,
         )
         violations = self.symbolic_engine.evaluate_obligations(ir, states)
-        findings = tuple(self._finding(ir, violation) for violation in violations)
-        return findings, {"ir": ir, "states": states, "violations": violations, "initial_storage": initial_storage}
+        hypotheses = self.vulnerability_engine.discover(ir)
+        validations = self.vulnerability_engine.validate(ir, hypotheses, initial_storage=initial_storage)
+        findings = self._merge_findings(ir, violations, validations)
+        return findings, {
+            "ir": ir,
+            "states": states,
+            "violations": violations,
+            "hypotheses": hypotheses,
+            "hypothesis_validations": validations,
+            "initial_storage": initial_storage,
+        }
 
-    def _finding(self, ir: ContractIR, violation: InvariantViolation) -> AuditFinding:
+    def _merge_findings(
+        self,
+        ir: ContractIR,
+        violations: tuple[InvariantViolation, ...],
+        validations: tuple[HypothesisValidation, ...],
+    ) -> tuple[AuditFinding, ...]:
+        findings: list[AuditFinding] = [self._finding(ir, violation) for violation in violations]
+        existing = {finding.id for finding in findings}
+        existing_traces = {finding.counterexample.attack_trace for finding in findings}
+        for validation in validations:
+            if validation.status != "confirmed" or validation.violation is None:
+                continue
+            finding = self._finding(ir, validation.violation, hypothesis=validation.hypothesis)
+            if finding.id in existing or finding.counterexample.attack_trace in existing_traces:
+                continue
+            findings.append(finding)
+            existing.add(finding.id)
+            existing_traces.add(finding.counterexample.attack_trace)
+        return tuple(findings)
+
+    def _finding(
+        self,
+        ir: ContractIR,
+        violation: InvariantViolation,
+        *,
+        hypothesis: VulnerabilityHypothesis | None = None,
+    ) -> AuditFinding:
         counterexample = self.counterexample_minimizer.minimize(violation)
         escalation = EscalationEngine(ir=ir).analyze(counterexample)
         invariant = self._obligation_by_id(ir, violation.obligation_id)
@@ -238,6 +291,7 @@ class AuditorSkill:
             escalation=escalation,
             explanation="",
             remediation={},
+            hypothesis=hypothesis,
         )
         remediation = self.generate_remediation(draft)
         return AuditFinding(
@@ -251,6 +305,7 @@ class AuditorSkill:
             escalation=draft.escalation,
             explanation=self.explain_finding(draft),
             remediation=remediation,
+            hypothesis=draft.hypothesis,
         )
 
     def _default_obligations(self, ir: ContractIR) -> tuple[Obligation, ...]:
@@ -295,9 +350,27 @@ class AuditorSkill:
         for obligation in ir.obligations:
             if obligation.id == obligation_id:
                 return obligation
+        if obligation_id.startswith("hypothesis_"):
+            resource_id = obligation_id.removeprefix("hypothesis_").removesuffix("_non_negative")
+            return Obligation(
+                id=obligation_id,
+                predicate=Expression(
+                    kind=ExprKind.GTE,
+                    args=(Expression(kind=ExprKind.READ, value=resource_id), Expression(kind=ExprKind.LITERAL, value=0)),
+                ),
+                description=f"{resource_id} should remain non-negative under vulnerability hypothesis",
+                origin="hypothesis",
+                severity_on_failure="high",
+            )
         raise KeyError(obligation_id)
 
-    def _build_report(self, contracts: tuple[ContractIR, ...], findings: tuple[AuditFinding, ...]) -> AuditReport:
+    def _build_report(
+        self,
+        contracts: tuple[ContractIR, ...],
+        findings: tuple[AuditFinding, ...],
+        hypotheses: tuple[VulnerabilityHypothesis, ...] = (),
+        validations: tuple[HypothesisValidation, ...] = (),
+    ) -> AuditReport:
         return AuditReport(
             executive_summary=self._executive_summary(contracts, findings),
             threat_model={
@@ -324,6 +397,10 @@ class AuditorSkill:
                 for contract in contracts
                 for obligation in contract.obligations
             ],
+            vulnerability_hypotheses=[hypothesis.to_dict() for hypothesis in hypotheses],
+            confirmed_exploits=[validation.to_dict() for validation in validations if validation.status == "confirmed"],
+            failed_hypotheses=[validation.to_dict() for validation in validations if validation.status == "failed"],
+            potential_risks=[validation.to_dict() for validation in validations if validation.status == "potential"],
             verified_properties=[],
             counterexamples=[finding.to_report_record() for finding in findings],
             escalation_chains=[finding.escalation.to_dict() for finding in findings],
@@ -334,13 +411,13 @@ class AuditorSkill:
         if not contracts:
             return "No supported Solidity or Anchor contracts were discovered."
         if not findings:
-            return f"Audited {len(contracts)} contract(s) and found no failed invariants."
+            return f"Audited {len(contracts)} contract(s); no confirmed exploits were found."
         highest = max(
             (finding.severity for finding in findings),
             key=("info", "low", "medium", "high", "critical").index,
         )
         return (
-            f"Audited {len(contracts)} contract(s) and found {len(findings)} failed invariant(s); "
+            f"Audited {len(contracts)} contract(s) and found {len(findings)} confirmed exploit(s); "
             f"highest severity is {highest}."
         )
 

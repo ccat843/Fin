@@ -1,0 +1,134 @@
+{
+  "examples/anchor/vault.rs": [],
+  "examples/solidity/OwnableVault.sol": [
+    {
+      "branch_history": [],
+      "constraints": [],
+      "context": {
+        "accounts": {},
+        "caller": "attacker",
+        "chain": "evm",
+        "inputs": {},
+        "program_id": null,
+        "signers": []
+      },
+      "effects_applied": [],
+      "invariant_violations": [],
+      "metadata": {
+        "solver_status": "sat"
+      },
+      "reverted": false,
+      "storage": {
+        "balance": 10,
+        "owner": "alice"
+      },
+      "transition_ids": [
+        "deposit"
+      ]
+    },
+    {
+      "branch_history": [
+        "require_1:false"
+      ],
+      "constraints": [
+        {
+          "args": [
+            {
+              "args": [
+                {
+                  "args": [],
+                  "kind": "caller",
+                  "value": null
+                },
+                {
+                  "args": [],
+                  "kind": "read",
+                  "value": "owner"
+                }
+              ],
+              "kind": "eq",
+              "value": null
+            }
+          ],
+          "kind": "not",
+          "value": null
+        }
+      ],
+      "context": {
+        "accounts": {},
+        "caller": "attacker",
+        "chain": "evm",
+        "inputs": {},
+        "program_id": null,
+        "signers": []
+      },
+      "effects_applied": [],
+      "invariant_violations": [],
+      "metadata": {
+        "solver_proof": "unsupported symbolic constraint shape",
+        "solver_status": "unknown"
+      },
+      "reverted": true,
+      "storage": {
+        "balance": 10,
+        "owner": "alice"
+      },
+      "transition_ids": [
+        "withdraw"
+      ]
+    }
+  ],
+  "tests/fixtures/VulnerableVault.sol": [
+    {
+      "branch_history": [
+        "require_1:true"
+      ],
+      "constraints": [
+        {
+          "args": [
+            {
+              "args": [],
+              "kind": "caller",
+              "value": null
+            },
+            {
+              "args": [],
+              "kind": "read",
+              "value": "owner"
+            }
+          ],
+          "kind": "neq",
+          "value": null
+        }
+      ],
+      "context": {
+        "accounts": {},
+        "caller": "attacker",
+        "chain": "evm",
+        "inputs": {},
+        "program_id": null,
+        "signers": []
+      },
+      "effects_applied": [
+        "balance_decrement_1"
+      ],
+      "invariant_violations": [
+        "balance_non_negative"
+      ],
+      "metadata": {
+        "invariant_status": "violated",
+        "invariant_violations": "balance_non_negative",
+        "solver_proof": "unsupported symbolic constraint shape",
+        "solver_status": "unknown"
+      },
+      "reverted": false,
+      "storage": {
+        "balance": -5,
+        "owner": "alice"
+      },
+      "transition_ids": [
+        "drain"
+      ]
+    }
+  ]
+}

@@ -53,6 +53,50 @@ artifacts/       Committed reproducible demonstration outputs
 scripts/         Demo artifact generator
 ```
 
+
+## Installation
+
+You can use this repository in two ways: as a Python package for local tooling, or
+as an AI-agent skill that instructs agents how to call the auditor interface.
+
+### Install as a Python package
+
+```bash
+git clone <repo-url> contract-verifier-skill
+cd contract-verifier-skill
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+pytest -q
+```
+
+For one-off commands without installing the editable package, run from the repo
+root with `PYTHONPATH=src`.
+
+### Install as an AI-agent skill
+
+This repository includes a root `SKILL.md`, so AI agents that support local skill
+folders can load it directly. A typical local installation is:
+
+```bash
+# Pick the skills directory used by your agent runtime.
+export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+mkdir -p "$CODEX_HOME/skills"
+
+# Clone this repo as a skill folder.
+git clone <repo-url> "$CODEX_HOME/skills/contract-verifier"
+
+# Install the Python package used by the skill commands.
+cd "$CODEX_HOME/skills/contract-verifier"
+python -m pip install -e '.[dev]'
+```
+
+After installation, agents can invoke the skill by following `SKILL.md` and using
+the Python command surface in `contract_verifier.auditor`. If your agent runtime
+uses a different skills directory, place this repository there instead; the
+important requirement is that `SKILL.md`, `src/`, `scripts/`, and `artifacts/`
+stay together in the same folder.
+
 ## Quick start
 
 ### 1. Create an environment

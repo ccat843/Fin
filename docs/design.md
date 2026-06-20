@@ -34,6 +34,20 @@ The public command surface lives in `contract_verifier.auditor`.
 `AuditRun` contains the command name, lowered contracts, findings, final
 `AuditReport`, and per-contract artifacts such as states and violations.
 
+
+## Skill packaging and installation
+
+The repository is also packaged as an AI-agent skill by including a root
+`SKILL.md`. Agent runtimes that support local skill folders can install the repo
+under their skills directory, for example `$CODEX_HOME/skills/contract-verifier`,
+and then install the Python package in editable mode with `python -m pip install
+-e '.[dev]'`.
+
+The skill file intentionally stays concise. It tells agents to call the public
+`contract_verifier.auditor` commands and to disclose current limitations when
+presenting audit results. The root `README.md` contains human-oriented setup and
+installation details.
+
 ## Repository workflow
 
 `audit_repository` currently performs this deterministic workflow:

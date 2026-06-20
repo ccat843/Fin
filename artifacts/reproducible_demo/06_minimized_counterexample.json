@@ -1,0 +1,17 @@
+[
+  {
+    "attack_trace": [
+      "drain"
+    ],
+    "input_constraints": [],
+    "obligation_id": "balance_non_negative",
+    "solver_result": {
+      "model": {},
+      "proof": null,
+      "status": "sat"
+    },
+    "state_snapshot": {
+      "balance": -5
+    }
+  }
+]
